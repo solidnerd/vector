@@ -1,5 +1,5 @@
 # We use compiler-rt, libunwind, and libc++ from LLVM.
-ARG LLVM_VERSION=9.0.0
+ARG LLVM_VERSION=9.0.1
 # The version of musl should be the same as the one Rust is compiled with.
 # This version can be found in this file:
 # https://github.com/rust-lang/rust/blob/master/src/ci/docker/scripts/musl-toolchain.sh.
@@ -28,14 +28,19 @@ ARG LINUX_HEADERS_VERSION=5.3.10
 
 # Locations for produced tools and libraries.
 ARG RUST_PREFIX=/opt/rust
-ARG CLANG_PREFIX=/usr
+ARG CLANG_PREFIX=/usr/lib/llvm-9
 ARG LIBS_PREFIX=/opt/libs
+
+# Bulid non-interactively
+ARG DEBIAN_FRONTEND=noninteractive
 
 # Libs
 FROM ubuntu:20.04 AS libs-builder
 
+ARG DEBIAN_FRONTEND
+
 ARG CLANG_PREFIX
-RUN apt-get update && apt-get install -y clang llvm lld
+RUN apt-get update && apt-get install -y clang-9 llvm-9 lld-9
 
 # Get all sources at first, so that changes in arguments
 # flags would not redownload them.
@@ -60,7 +65,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf \
 ENV LINUX_DIR $SRC_DIR/linux-$LINUX_HEADERS_VERSION
 
 # Install build dependencies.
-RUN apt-get update && apt-get -y install rsync ninja-build cmake python3-distutils clang llvm lld
+RUN apt-get update && apt-get -y install rsync ninja-build cmake python3-distutils clang-9 llvm-9 lld-9
 
 ARG TARGET
 ARG LIBS_PREFIX
@@ -95,7 +100,7 @@ RUN mkdir build && \
 
 # Compile musl.
 WORKDIR $MUSL_DIR
-ENV CC=clang
+ENV CC=clang-9
 ENV CFLAGS="-target $TARGET -nostdinc -isystem $LIBS_PREFIX/include -D_Noreturn="
 ENV LDFLAGS="-fuse-ld=lld -static -nostdlib -nostartfiles"
 ENV CROSS_COMPILE=$CLANG_PREFIX/bin/
@@ -107,12 +112,12 @@ RUN cd $MUSL_DIR && \
   --prefix=$LIBS_PREFIX \
   --disable-shared \
   --disable-gcc-wrapper && \
-  make -j$(nproc) install
+  make -j$(nproc) install AR=/usr/bin/ar RANLIB=/usr/bin/ranlib
 
 # Install Linux headers.
 WORKDIR $LINUX_DIR
 ARG LINUX_TARGET
-ENV CC=clang
+ENV CC=clang-9
 ENV CFLAGS="-target $TARGET -nostdinc -isystem $LIBS_PREFIX/include"
 ENV LDFLAGS="-fuse-ld=lld -static -nostdlib -nostartfiles"
 RUN make -j$(nproc) headers_install \
@@ -128,8 +133,8 @@ RUN make -j$(nproc) headers_install \
 
 # libunwind
 WORKDIR $LLVM_DIR/libunwind
-ENV CC=clang
-ENV CXX=clang++
+ENV CC=clang-9
+ENV CXX=clang++-9
 ENV CFLAGS="-target $TARGET -nostdinc -isystem $LIBS_PREFIX/include"
 ENV CXXFLAGS="$CFLAGS -nostdinc++ -I$LLVM_DIR/libcxx/include"
 ENV LDFLAGS="-fuse-ld=lld -static -nostdlib -nostartfiles -L$LIBS_PREFIX/lib -lc"
@@ -146,8 +151,8 @@ RUN mkdir build && \
 
 # libc++abi
 WORKDIR $LLVM_DIR/libcxxabi
-ENV CC=clang
-ENV CXX=clang++
+ENV CC=clang-9
+ENV CXX=clang++-9
 ENV CFLAGS="-target $TARGET -nostdinc -isystem $LIBS_PREFIX/include"
 ENV CXXFLAGS="$CFLAGS -nostdinc++ -I$LLVM_DIR/libcxx/include"
 ENV LDFLAGS="-fuse-ld=lld -static -nostdlib -nostartfiles -L$LIBS_PREFIX/lib -lunwind -lc"
@@ -167,8 +172,8 @@ RUN mkdir build && \
 
 # libc++
 WORKDIR $LLVM_DIR/libcxx
-ENV CC=clang
-ENV CXX=clang++
+ENV CC=clang-9
+ENV CXX=clang++-9
 ENV CFLAGS="-target $TARGET -nostdinc -isystem $LIBS_PREFIX/include"
 ENV CXXFLAGS="$CFLAGS -nostdinc++ -I$LIBS_PREFIX/include/c++/v1"
 ENV LDFLAGS="-fuse-ld=lld -static -nostdlib -nostartfiles -L$LIBS_PREFIX/lib -lc++abi -lunwind -lc"
@@ -198,7 +203,7 @@ ENV MUSL_CFLAGS="-target $TARGET -nostdinc -isystem $LIBS_PREFIX/include"
 ENV MUSL_CXXFLAGS="$MUSL_CFLAGS -nostdinc++ -I$LIBS_PREFIX/include/c++/v1"
 
 ENV MUSL_LDFLAGS="-fuse-ld=lld -static -nostdlib -nostartfiles -L$LIBS_PREFIX/lib -L$LIBS_PREFIX/lib/linux -lc++ -lc++abi -lunwind -l$(basename /opt/libs/lib/linux/libclang_rt.builtins* | tail -c+4 | head -c-3) -lc"
-ENV MUSL_STARTFILES="$LIBS_PREFIX/lib/crt1.o $(find $LIBS_PREFIX/lib/linux -iname 'clang_rt.crtbegin*.o') $(find $LIBS_PREFIX/lib/linux -iname 'clang_rt.crtend*.o')"
+ENV MUSL_STARTFILES="$(find $LIBS_PREFIX/lib/linux -iname 'clang_rt.crtbegin*.o') $(find $LIBS_PREFIX/lib/linux -iname 'clang_rt.crtend*.o')"
 
 RUN mkdir -p $LIBS_PREFIX/bin
 RUN echo \
@@ -233,7 +238,7 @@ RUN ln -s $CLANG_PREFIX/bin/llvm-strip $LIBS_PREFIX/bin/strip
 RUN ln -s $CLANG_PREFIX/bin/llvm-ar $LIBS_PREFIX/bin/arm-linux-musleabihf-ar
 
 # Use stdatomic.h header provided by Clang because it is not present in musl.
-RUN ln -s $CLANG_PREFIX/lib/clang/9.0.0/include/stdatomic.h $LIBS_PREFIX/include/stdatomic.h
+RUN ln -s $CLANG_PREFIX/lib/clang/$LLVM_VERSION/include/stdatomic.h $LIBS_PREFIX/include/stdatomic.h
 
 # Some build scripts hardcode -lstdc++ linker flag on all Linux systems.
 # Because our linker is already configured to link with libc++ instead,
@@ -248,6 +253,8 @@ RUN echo > dummy.c && \
 # The actual builder.
 FROM ubuntu:20.04
 
+ARG DEBIAN_FRONTEND
+
 # Install Rust using rustup.
 RUN apt-get update && apt-get install -y curl
 ARG TARGET
@@ -260,7 +267,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
 ENV PATH="$RUSTUP_HOME/bin:$CARGO_HOME/bin:$PATH"
 
 ARG CLANG_PREFIX
-RUN apt-get update && apt-get install -y clang llvm lld
+RUN apt-get update && apt-get install -y clang-9 llvm-9 lld-9
 
 ARG LIBS_PREFIX
 COPY --from=libs-builder $LIBS_PREFIX $LIBS_PREFIX
@@ -300,7 +307,7 @@ RUN printf "[build]\ntarget = \"$TARGET\"\n" > ~/.cargo/config
 RUN if [ -n "$GNU_TARGET"]; then apt-get update && apt-get install -y qemu-user; fi
 
 # Add dependencies for running tests
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata ca-certificates
+RUN apt-get install -y tzdata ca-certificates
 
 ENV TARGET="$TARGET"
 

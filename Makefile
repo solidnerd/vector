@@ -159,7 +159,9 @@ build: ## Build the project in release mode (Supports `ENVIRONMENT=true`)
 build-dev: ## Build the project in development mode (Supports `ENVIRONMENT=true`)
 	${MAYBE_ENVIRONMENT_EXEC} cargo build --no-default-features --features ${DEFAULT_FEATURES}
 
-build-all: build-x86_64-unknown-linux-musl build-armv7-unknown-linux-musleabihf build-aarch64-unknown-linux-musl ## Build the project in release mode for all supported platforms
+build-all: ## Build the project in release mode for all supported platforms
+build-all: build-x86_64-unknown-linux-gnu build-x86_64-unknown-linux-musl
+build-all: build-armv7-unknown-linux-musleabihf build-aarch64-unknown-linux-musl
 
 build-x86_64-unknown-linux-gnu: ## Build dynamically linked binary in release mode for the x86_64 architecture
 	$(RUN) build-x86_64-unknown-linux-gnu
