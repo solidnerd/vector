@@ -1,8 +1,16 @@
 mapping = _{ SOI ~ assignment ~ (NEWLINE+ ~ assignment)* ~ EOI }
 
-assignment = { dot_path ~ "=" ~ query }
+assignment = { target_path ~ "=" ~ query }
 
-dot_path = @{ "." ~ ('a'..'z' | 'A'..'Z' | "_" | "-" | "." )+ }
+// Paths
+path_segment = @{ ('a'..'z' | 'A'..'Z' | "_" | "-" )+ ~ ( "[" ~ ('0'..'9')+ ~ "]" )? }
+
+target_path = @{ ("." ~ path_segment)+ }
+
+// Queries
+path_coalesce = !{ "(" ~ path_segment ~ ("|" ~ path_segment)+ ~ ")" }
+
+dot_path = ${ ("." ~ (path_segment | path_coalesce))+ }
 
 query = _{ value | dot_path }
 

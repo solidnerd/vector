@@ -1,6 +1,4 @@
-use crate::{
-    event::Event,
-};
+use crate::event::Event;
 
 pub mod parser;
 pub mod query;
@@ -10,12 +8,12 @@ pub type Result<T> = std::result::Result<T, String>;
 #[derive(Debug)]
 pub struct Assignment {
     path: String,
-    function: Box::<dyn query::Function>,
+    function: Box<dyn query::Function>,
 }
 
 impl Assignment {
-    pub fn new(path: String, func: Box::<dyn query::Function>) -> Self {
-        Self{
+    pub fn new(path: String, func: Box<dyn query::Function>) -> Self {
+        Self {
             path: path,
             function: func,
         }
@@ -37,14 +35,14 @@ pub struct Mapping {
 
 impl Mapping {
     pub fn new(assignments: Vec<Assignment>) -> Self {
-        Mapping{assignments}
+        Mapping { assignments }
     }
 
     pub fn execute(self, event: &mut Event) -> Result<()> {
         let context = event.clone();
         for (i, assignment) in self.assignments.iter().enumerate() {
             if let Err(err) = assignment.apply(event, &context) {
-                return Err(format!("failed to apply mapping {}: {}", i, err))
+                return Err(format!("failed to apply mapping {}: {}", i, err));
             }
         }
         Ok(())
