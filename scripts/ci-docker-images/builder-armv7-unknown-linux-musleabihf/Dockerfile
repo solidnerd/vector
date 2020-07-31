@@ -239,6 +239,7 @@ RUN ln -s $CLANG_PREFIX/bin/llvm-ar $LIBS_PREFIX/bin/arm-linux-musleabihf-ar
 
 # Use some headers provided by Clang because which are not present in musl.
 RUN ln -s $CLANG_PREFIX/lib/clang/$LLVM_VERSION/include/stdatomic.h $LIBS_PREFIX/include/stdatomic.h
+RUN ln -s $CLANG_PREFIX/lib/clang/$LLVM_VERSION/include/emmintrin.h $LIBS_PREFIX/include/emmintrin.h
 
 # Some build scripts hardcode -lstdc++ linker flag on all Linux systems.
 # Because our linker is already configured to link with libc++ instead,
