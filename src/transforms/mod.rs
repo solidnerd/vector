@@ -55,6 +55,8 @@ pub mod swimlanes;
 pub mod tag_cardinality_limit;
 #[cfg(feature = "transforms-tokenizer")]
 pub mod tokenizer;
+#[cfg(feature = "transforms-vicscript")]
+pub mod vicscript;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 

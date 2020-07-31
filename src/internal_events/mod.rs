@@ -20,6 +20,7 @@ mod tcp;
 mod udp;
 mod unix;
 mod vector;
+mod vicscript;
 #[cfg(feature = "wasm")]
 mod wasm;
 
@@ -47,6 +48,7 @@ pub use self::tcp::*;
 pub use self::udp::*;
 pub use self::unix::*;
 pub use self::vector::*;
+pub use self::vicscript::*;
 #[cfg(feature = "wasm")]
 pub use self::wasm::*;
 

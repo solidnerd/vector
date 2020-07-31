@@ -72,6 +72,7 @@ impl Function for Path {
                         ),)
                 ))?;
         }
+
         Ok(value.clone())
     }
 }

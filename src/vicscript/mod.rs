@@ -19,8 +19,8 @@ impl Assignment {
         }
     }
 
-    fn apply(&self, target: &mut Event, context: &Event) -> Result<()> {
-        let v = self.function.execute(&context)?;
+    fn apply(&self, target: &mut Event) -> Result<()> {
+        let v = self.function.execute(&target)?;
         target.as_mut_log().insert(&self.path, v);
         Ok(())
     }
@@ -38,10 +38,9 @@ impl Mapping {
         Mapping { assignments }
     }
 
-    pub fn execute(self, event: &mut Event) -> Result<()> {
-        let context = event.clone();
+    pub fn execute(&self, event: &mut Event) -> Result<()> {
         for (i, assignment) in self.assignments.iter().enumerate() {
-            if let Err(err) = assignment.apply(event, &context) {
+            if let Err(err) = assignment.apply(event) {
                 return Err(format!("failed to apply mapping {}: {}", i, err));
             }
         }
