@@ -39,6 +39,7 @@ pub mod hyper;
 pub mod kafka;
 pub mod kubernetes;
 pub mod list;
+pub mod mapping;
 pub mod metrics;
 pub mod region;
 pub mod runtime;
@@ -57,7 +58,6 @@ pub mod transforms;
 pub mod types;
 pub mod unit_test;
 pub mod validate;
-pub mod vicscript;
 
 pub use event::Event;
 

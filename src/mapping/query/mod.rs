@@ -1,6 +1,6 @@
 use crate::{
     event::{Event, Value},
-    vicscript::Result,
+    mapping::Result,
 };
 
 pub mod path;

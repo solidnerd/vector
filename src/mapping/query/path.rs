@@ -1,7 +1,7 @@
 use super::Function;
 use crate::{
     event::{util::log::get_value, Event, PathIter, Value},
-    vicscript::Result,
+    mapping::Result,
 };
 use string_cache::DefaultAtom as Atom;
 

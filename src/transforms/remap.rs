@@ -1,28 +1,28 @@
 use super::Transform;
 use crate::{
     event::Event,
-    internal_events::{VicscriptEventProcessed, VicscriptFailedMapping},
+    internal_events::{RemapEventProcessed, RemapFailedMapping},
+    mapping::{parser::parse as parse_mapping, Mapping},
     topology::config::{DataType, TransformConfig, TransformContext, TransformDescription},
-    vicscript::{parser::parse as parse_mapping, Mapping},
 };
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Derivative)]
 #[serde(deny_unknown_fields, default)]
 #[derivative(Default)]
-pub struct VicscriptConfig {
+pub struct RemapConfig {
     pub mapping: String,
     pub drop_on_err: bool,
 }
 
 inventory::submit! {
-    TransformDescription::new::<VicscriptConfig>("vicscript")
+    TransformDescription::new::<RemapConfig>("remap")
 }
 
-#[typetag::serde(name = "vicscript")]
-impl TransformConfig for VicscriptConfig {
+#[typetag::serde(name = "remap")]
+impl TransformConfig for RemapConfig {
     fn build(&self, _cx: TransformContext) -> crate::Result<Box<dyn Transform>> {
-        Ok(Box::new(Vicscript::new(self.clone())?))
+        Ok(Box::new(Remap::new(self.clone())?))
     }
 
     fn input_type(&self) -> DataType {
@@ -34,32 +34,32 @@ impl TransformConfig for VicscriptConfig {
     }
 
     fn transform_type(&self) -> &'static str {
-        "vicscript"
+        "remap"
     }
 }
 
 #[derive(Debug)]
-pub struct Vicscript {
+pub struct Remap {
     mapping: Mapping,
     drop_on_err: bool,
 }
 
-impl Vicscript {
-    pub fn new(config: VicscriptConfig) -> crate::Result<Vicscript> {
-        Ok(Vicscript {
+impl Remap {
+    pub fn new(config: RemapConfig) -> crate::Result<Remap> {
+        Ok(Remap {
             mapping: parse_mapping(&config.mapping)?,
             drop_on_err: config.drop_on_err,
         })
     }
 }
 
-impl Transform for Vicscript {
+impl Transform for Remap {
     fn transform(&mut self, mut event: Event) -> Option<Event> {
-        emit!(VicscriptEventProcessed);
+        emit!(RemapEventProcessed);
 
         if let Err(err) = self.mapping.execute(&mut event) {
             error!(message = "mapping failed", %err);
-            emit!(VicscriptFailedMapping { error: err });
+            emit!(RemapFailedMapping { error: err });
 
             if self.drop_on_err {
                 return None;
@@ -76,21 +76,21 @@ mod tests {
     use string_cache::DefaultAtom as Atom;
 
     #[test]
-    fn check_vicscript_adds() {
+    fn check_remap_adds() {
         let event = {
             let mut event = Event::from("augment me");
             event.as_mut_log().insert("copy_from", "buz");
             event
         };
 
-        let conf = VicscriptConfig {
+        let conf = RemapConfig {
             mapping: r#".foo = "bar"
             .bar = "baz"
             .copy = .copy_from"#
                 .to_string(),
             drop_on_err: true,
         };
-        let mut tform = Vicscript::new(conf).unwrap();
+        let mut tform = Remap::new(conf).unwrap();
 
         let result = tform.transform(event.clone()).unwrap();
         assert_eq!(

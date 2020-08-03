@@ -39,6 +39,8 @@ pub mod merge;
 pub mod reduce;
 #[cfg(feature = "transforms-regex_parser")]
 pub mod regex_parser;
+#[cfg(feature = "transforms-remap")]
+pub mod remap;
 #[cfg(feature = "transforms-remove_fields")]
 pub mod remove_fields;
 #[cfg(feature = "transforms-remove_tags")]
@@ -55,8 +57,6 @@ pub mod swimlanes;
 pub mod tag_cardinality_limit;
 #[cfg(feature = "transforms-tokenizer")]
 pub mod tokenizer;
-#[cfg(feature = "transforms-vicscript")]
-pub mod vicscript;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 

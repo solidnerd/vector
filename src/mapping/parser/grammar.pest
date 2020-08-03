@@ -1,4 +1,6 @@
-mapping = _{ SOI ~ assignment ~ (NEWLINE+ ~ assignment)* ~ EOI }
+mapping = _{ SOI ~ statement ~ (NEWLINE+ ~ statement)* ~ EOI }
+
+statement = _{ assignment | deletion }
 
 assignment = { target_path ~ "=" ~ query }
 
@@ -12,6 +14,10 @@ path_coalesce = !{ "(" ~ path_segment ~ ("|" ~ path_segment)+ ~ ")" }
 
 dot_path = ${ ("." ~ (path_segment | path_coalesce))+ }
 
+deletion = ${ "del(" ~ dot_path ~ ")" }
+
+// NOTE: Not including delete here yet, but there's no reason we can't slot it
+// in at some point and get `.nested = del(.foo)`.
 query = _{ value | dot_path }
 
 value = _{ string | number | boolean | null }
@@ -24,8 +30,10 @@ string = ${ "\"" ~ inner ~ "\"" }
 inner = @{ char* }
 char = {
     !("\"" | "\\") ~ ANY
-    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
-    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+    | "\\" ~ ("\"" | "\\" | "n" | "t")
+    // TODO: Eventually expand this to allow more escape sequences.
+    // | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    // | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
 number = @{

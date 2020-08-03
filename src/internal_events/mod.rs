@@ -13,6 +13,7 @@ mod lua;
 #[cfg(feature = "sources-prometheus")]
 mod prometheus;
 mod regex;
+mod remap;
 mod splunk_hec;
 mod stdin;
 mod syslog;
@@ -20,7 +21,6 @@ mod tcp;
 mod udp;
 mod unix;
 mod vector;
-mod vicscript;
 #[cfg(feature = "wasm")]
 mod wasm;
 
@@ -41,6 +41,7 @@ pub use self::lua::*;
 #[cfg(feature = "sources-prometheus")]
 pub use self::prometheus::*;
 pub use self::regex::*;
+pub use self::remap::*;
 pub use self::splunk_hec::*;
 pub use self::stdin::*;
 pub use self::syslog::*;
@@ -48,7 +49,6 @@ pub use self::tcp::*;
 pub use self::udp::*;
 pub use self::unix::*;
 pub use self::vector::*;
-pub use self::vicscript::*;
 #[cfg(feature = "wasm")]
 pub use self::wasm::*;
 

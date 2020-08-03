@@ -17,7 +17,7 @@ use vector::topology::config::{TransformConfig, TransformContext};
 use vector::topology::{self, config};
 use vector::transforms::{
     add_fields::AddFields,
-    vicscript::{Vicscript, VicscriptConfig},
+    remap::{Remap, RemapConfig},
     Transform,
 };
 use vector::{sinks, sources, transforms};
@@ -40,7 +40,7 @@ criterion_group!(
     benchmark_complex,
     bench_elasticsearch_index,
     benchmark_regex,
-    benchmark_vicscript,
+    benchmark_remap,
 );
 criterion_main!(
     benches,
@@ -673,22 +673,22 @@ fn bench_elasticsearch_index(c: &mut Criterion) {
     );
 }
 
-fn benchmark_vicscript(c: &mut Criterion) {
+fn benchmark_remap(c: &mut Criterion) {
     let event = {
         let mut event = Event::from("augment me");
         event.as_mut_log().insert("copy_from", "buz");
         event
     };
 
-    c.bench_function("add fields with vicscript", |b| {
-        let conf = VicscriptConfig {
+    c.bench_function("add fields with remap", |b| {
+        let conf = RemapConfig {
             mapping: r#".foo = "bar"
             .bar = "baz"
             .copy = .copy_from"#
                 .to_string(),
             drop_on_err: true,
         };
-        let mut tform = Vicscript::new(conf).unwrap();
+        let mut tform = Remap::new(conf).unwrap();
 
         b.iter(|| {
             let result = tform.transform(event.clone()).unwrap();

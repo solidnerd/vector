@@ -2,10 +2,10 @@ extern crate pest;
 
 use crate::{
     event::Value,
-    vicscript::{
+    mapping::{
         query,
         query::{path::Path as QueryPath, Literal},
-        Assignment, Mapping, Result,
+        Assignment, Deletion, Function, Mapping, Result,
     },
 };
 
@@ -15,8 +15,8 @@ use pest::{
 };
 
 #[derive(Parser)]
-#[grammar = "./vicscript/parser/grammar.pest"]
-struct VicscriptParser;
+#[grammar = "./mapping/parser/grammar.pest"]
+struct MappingParser;
 
 fn path_from_pair(pair: Pair<Rule>) -> Result<String> {
     Ok(pair.as_str().get(1..).unwrap().to_string())
@@ -46,7 +46,17 @@ fn path_segments_from_pair(pair: Pair<Rule>) -> Result<Vec<Vec<String>>> {
 fn query_from_pair(pair: Pair<Rule>) -> Result<Box<dyn query::Function>> {
     Ok(match pair.as_rule() {
         Rule::string => Box::new(Literal::from(Value::from(
-            pair.into_inner().next().unwrap().as_str(),
+            pair.into_inner()
+                .next()
+                .unwrap()
+                .as_str()
+                // TODO: Include unicode escape sequences, surely there must be
+                // a standard lib opposite of https://doc.rust-lang.org/std/primitive.str.html#method.escape_default
+                // but I can't find it anywhere.
+                .replace("\\\"", "\"")
+                .replace("\\n", "\n")
+                .replace("\\t", "\t")
+                .replace("\\\\", "\\"),
         ))),
         Rule::null => Box::new(Literal::from(Value::Null)),
         Rule::number => Box::new(Literal::from(Value::from(
@@ -62,14 +72,19 @@ fn query_from_pair(pair: Pair<Rule>) -> Result<Box<dyn query::Function>> {
 }
 
 fn mapping_from_pairs(pairs: Pairs<Rule>) -> Result<Mapping> {
-    let mut assignments = Vec::new();
+    let mut assignments = Vec::<Box<dyn Function>>::new();
     for pair in pairs {
         match pair.as_rule() {
             Rule::assignment => {
                 let mut inner_rules = pair.into_inner();
                 let path = path_from_pair(inner_rules.next().unwrap())?;
                 let query = query_from_pair(inner_rules.next().unwrap())?;
-                assignments.push(Assignment::new(path, query));
+                assignments.push(Box::new(Assignment::new(path, query)));
+            }
+            Rule::deletion => {
+                let mut inner_rules = pair.into_inner();
+                let path = path_from_pair(inner_rules.next().unwrap())?;
+                assignments.push(Box::new(Deletion::new(path)));
             }
             _ => (),
         }
@@ -78,7 +93,7 @@ fn mapping_from_pairs(pairs: Pairs<Rule>) -> Result<Mapping> {
 }
 
 pub fn parse(input: &str) -> Result<Mapping> {
-    match VicscriptParser::parse(Rule::mapping, input) {
+    match MappingParser::parse(Rule::mapping, input) {
         Ok(a) => mapping_from_pairs(a),
         Err(err) => Err(format!("mapping parse error\n{}", err)),
     }
@@ -109,7 +124,7 @@ mod test {
 1 | . = "bar"
   | ^---
   |
-  = expected target_path"###,
+  = expected target_path or deletion"###,
             ),
             (
                 "foo = \"bar\"",
@@ -119,7 +134,7 @@ mod test {
 1 | foo = "bar"
   | ^---
   |
-  = expected target_path"###,
+  = expected target_path or deletion"###,
             ),
             (
                 ".foo.bar = \"baz\" and this",
@@ -158,99 +173,113 @@ mod test {
         let cases = vec![
             (
                 ".foo = \"bar\"",
-                Mapping::new(vec![Assignment::new(
+                Mapping::new(vec![Box::new(Assignment::new(
                     "foo".to_string(),
                     Box::new(Literal::from(Value::from("bar"))),
-                )]),
+                ))]),
+            ),
+            (
+                ".foo = \"bar\\\"escaped\\\" stuff\"",
+                Mapping::new(vec![Box::new(Assignment::new(
+                    "foo".to_string(),
+                    Box::new(Literal::from(Value::from("bar\"escaped\" stuff"))),
+                ))]),
             ),
             (
                 ".foo = true",
-                Mapping::new(vec![Assignment::new(
+                Mapping::new(vec![Box::new(Assignment::new(
                     "foo".to_string(),
                     Box::new(Literal::from(Value::from(true))),
-                )]),
+                ))]),
             ),
             (
                 ".foo = false",
-                Mapping::new(vec![Assignment::new(
+                Mapping::new(vec![Box::new(Assignment::new(
                     "foo".to_string(),
                     Box::new(Literal::from(Value::from(false))),
-                )]),
+                ))]),
             ),
             (
                 ".foo = null",
-                Mapping::new(vec![Assignment::new(
+                Mapping::new(vec![Box::new(Assignment::new(
                     "foo".to_string(),
                     Box::new(Literal::from(Value::Null)),
-                )]),
+                ))]),
             ),
             (
                 ".foo = 50.5",
-                Mapping::new(vec![Assignment::new(
+                Mapping::new(vec![Box::new(Assignment::new(
                     "foo".to_string(),
                     Box::new(Literal::from(Value::from(50.5))),
-                )]),
+                ))]),
             ),
             (
                 ".foo = .bar",
-                Mapping::new(vec![Assignment::new(
+                Mapping::new(vec![Box::new(Assignment::new(
                     "foo".to_string(),
                     Box::new(QueryPath::from(vec![vec!["bar"]])),
-                )]),
+                ))]),
+            ),
+            (
+                ".foo = .bar[0].baz",
+                Mapping::new(vec![Box::new(Assignment::new(
+                    "foo".to_string(),
+                    Box::new(QueryPath::from(vec![vec!["bar[0]"], vec!["baz"]])),
+                ))]),
             ),
             (
                 ".foo = .bar\n.bar.buz = .qux.quz",
                 Mapping::new(vec![
-                    Assignment::new(
+                    Box::new(Assignment::new(
                         "foo".to_string(),
                         Box::new(QueryPath::from(vec![vec!["bar"]])),
-                    ),
-                    Assignment::new(
+                    )),
+                    Box::new(Assignment::new(
                         "bar.buz".to_string(),
                         Box::new(QueryPath::from(vec![vec!["qux"], vec!["quz"]])),
-                    ),
+                    )),
                 ]),
             ),
             (
                 ".foo = .bar\n\t\n.bar.buz = .qux.quz\n.qux = .bev",
                 Mapping::new(vec![
-                    Assignment::new(
+                    Box::new(Assignment::new(
                         "foo".to_string(),
                         Box::new(QueryPath::from(vec![vec!["bar"]])),
-                    ),
-                    Assignment::new(
+                    )),
+                    Box::new(Assignment::new(
                         "bar.buz".to_string(),
                         Box::new(QueryPath::from(vec![vec!["qux"], vec!["quz"]])),
-                    ),
-                    Assignment::new(
+                    )),
+                    Box::new(Assignment::new(
                         "qux".to_string(),
                         Box::new(QueryPath::from(vec![vec!["bev"]])),
-                    ),
+                    )),
                 ]),
             ),
             (
                 ".foo = .(bar | baz)",
-                Mapping::new(vec![Assignment::new(
+                Mapping::new(vec![Box::new(Assignment::new(
                     "foo".to_string(),
                     Box::new(QueryPath::from(vec![vec!["bar", "baz"]])),
-                )]),
+                ))]),
             ),
             (
                 ".foo = .foo.(bar | baz)",
-                Mapping::new(vec![Assignment::new(
+                Mapping::new(vec![Box::new(Assignment::new(
                     "foo".to_string(),
                     Box::new(QueryPath::from(vec![vec!["foo"], vec!["bar", "baz"]])),
-                )]),
+                ))]),
             ),
             (
                 ".foo = .(foo | zap).(bar | baz | buz)",
-                Mapping::new(vec![Assignment::new(
+                Mapping::new(vec![Box::new(Assignment::new(
                     "foo".to_string(),
                     Box::new(QueryPath::from(vec![
                         vec!["foo", "zap"],
                         vec!["bar", "baz", "buz"],
                     ])),
-                )]),
+                ))]),
             ),
         ];
 

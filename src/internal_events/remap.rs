@@ -2,23 +2,23 @@ use super::InternalEvent;
 use metrics::counter;
 
 #[derive(Debug)]
-pub struct VicscriptEventProcessed;
+pub struct RemapEventProcessed;
 
-impl InternalEvent for VicscriptEventProcessed {
+impl InternalEvent for RemapEventProcessed {
     fn emit_metrics(&self) {
         counter!("events_processed", 1,
             "component_kind" => "transform",
-            "component_type" => "vicscript",
+            "component_type" => "remap",
         );
     }
 }
 
 #[derive(Debug)]
-pub struct VicscriptFailedMapping {
+pub struct RemapFailedMapping {
     pub error: String,
 }
 
-impl InternalEvent for VicscriptFailedMapping {
+impl InternalEvent for RemapFailedMapping {
     fn emit_logs(&self) {
         warn!(
             message = "Mapping failed with event",
@@ -30,7 +30,7 @@ impl InternalEvent for VicscriptFailedMapping {
     fn emit_metrics(&self) {
         counter!("processing_error", 1,
             "component_kind" => "transform",
-            "component_type" => "vicscript",
+            "component_type" => "remap",
             "error_type" => "failed_mapping",
         );
     }
